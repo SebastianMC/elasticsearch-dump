@@ -4,6 +4,14 @@ var https = require("https");
 var EventEmitter = require('events').EventEmitter;
 var isUrl = require('./lib/is-url');
 
+var isJsonFileName = function(output) {
+    var endsWith = function(s, suffix) {
+        return s.indexOf(suffix, s.length - suffix.length) !== -1;
+    };
+
+    return output && ((typeof output) == "string") && endsWith(output, ".json");
+}
+
 var elasticdump = function(input, output, options){
   var self  = this;
 
@@ -49,8 +57,12 @@ var elasticdump = function(input, output, options){
     if(isUrl(self.options.output)){
       self.outputType = 'elasticsearch';
     }else{
-      self.outputType = 'file';
-      if(self.options.output === "$"){ self.options.toLog = false; }
+        if(isJsonFileName(self.options.output)) {
+            self.outputType = 'file';
+        } else {
+            self.outputType = 'keyvaluefile';
+        }
+        if(self.options.output === "$"){ self.options.toLog = false; }
     }
 
     OutputProto = require(__dirname + "/lib/transports/" + self.outputType)[self.outputType];
