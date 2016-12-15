@@ -20,7 +20,16 @@ var elasticdump = function(input, output, options){
   self.options = options;
 
   if (!self.options.searchBody)  {
-      self.options.searchBody = {"query": { "match_all": {} }, "fields": ["*"], "_source": true };
+      self.options.searchBody = {
+          "query": { "match_all": {} },
+          "fields": ["*"],
+          "_source": true
+      };
+  }
+
+  if (!self.options.searchBody.sort) {
+      // if no sorting specified in search body, sort by @timestamp by default
+      self.options.searchBody.sort = [{"@timestamp":{"order":"asc","unmapped_type":"boolean"}}];
   }
 
   if (self.options.toLog === null || self.options.toLog === undefined) {
