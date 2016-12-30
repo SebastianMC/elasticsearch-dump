@@ -4,6 +4,7 @@ var argv        = require('optimist').argv;
 var util        = require('util');
 var elasticdump = require( __dirname + "/../elasticdump.js" ).elasticdump;
 var packageData = require(__dirname + '/../package.json');
+var fs          = require('fs');
 
 // For future developers.  If you add options here, be sure to add the option to test suite tests where necessary
 var defaults = {
@@ -20,6 +21,7 @@ var defaults = {
   inputTransport:     null,
   outputTransport:    null,
   searchBody:         null,
+  searchBodyFile:     null,
   sourceOnly:         false,
   jsonLines:          false,
   format:             '',
@@ -33,6 +35,7 @@ var defaults = {
 };
 
 var options = {};
+var searchBodyFromFile;
 
 for(var i in defaults){
   options[i] = defaults[i];
@@ -45,6 +48,29 @@ for(var i in defaults){
   if(i == "searchBody") {
     options[i] = JSON.parse(options[i]);
   }
+  if(i == "searchBodyFile" && options[i]) {
+      var filename = options[i];
+      console.log("Rearding ES Query from JSON file " + filename);
+
+      try {
+          searchBodyFromFile = fs.readFileSync(filename, {encoding:'utf8'});
+      } catch(err) {
+          searchBodyFromFile = null;
+          console.error("Failed to read ES Query from file " + filename);
+          throw err;
+      }
+
+      try {
+          searchBodyFromFile = JSON.parse(searchBodyFromFile);
+      } catch(err) {
+          console.error("Failed to parse the JSON ES query from file " + filename);
+          throw err;
+      }
+  }
+}
+
+if(searchBodyFromFile) {
+    options['searchBody'] = searchBodyFromFile;
 }
 
 var log = function(type, message){
