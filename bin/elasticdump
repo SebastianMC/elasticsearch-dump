@@ -110,11 +110,125 @@ if (argv.help === true) {
   dumper.on('debug', function (message) { log('debug', message) })
   dumper.on('error', function (error) { log('error', 'Error Emitted => ' + (error.message || JSON.stringify(error))) })
 
-  dumper.dump(function (error) {
-    if (error) {
-      process.exit(1)
-    } else {
-      process.exit(0)
+  if(argv.exportFromDate) {
+    var exportDate = isValidDate(argv.exportFromDate);
+    if(!exportDate) {
+      log('error', 'Invalid export date supplied: ' + argv.exportFromDate + '. Please supply correct date in format YYYY-MM-DD, e.g.: 2017-07-15');
+      process.exit(1);
     }
-  })
+
+    var indexPrefix = argv['input-index-prefix'];
+    if(!indexPrefix) {
+      log('error', 'The parameter \'input-index-prefix\' is required when exporting from specific date');
+      process.exit(1);
+    }
+
+    log('log', 'Determining the ElasticSearch index(es) with prefix \''+ indexPrefix + '\' for date: ' + exportDate.toUTCString());
+
+    dumper.queryIndexForDate(argv['input-index-prefix'], exportDate, function(error, indexes) {
+      if (error) {
+        console.log('Failed with error')
+        process.exit(1)
+      } else {
+        if(indexes) {
+          var indexNames = []
+          var msgPrefix = 'Export will start from the following ElasticSearch indexes:';
+          for (var property in indexes) {
+            if (indexes.hasOwnProperty(property)) {
+              if(msgPrefix) {
+                log('log', msgPrefix);
+                msgPrefix = '';
+              }
+              log('log', ' ->' + property);
+              indexNames.push(property);
+            }
+          }
+
+          if( indexNames.length===0) {
+            console.log('There are no data found for the specified date in the specified index pattern. If you expected some data, please re-check the input parameters. You can also go to Kibaba to make sure some data exist')
+            process.exit(0);
+          }
+
+          // knowing the indexes, the export could start
+          dumpFirstIndex( exportDate, indexNames, false );
+        }
+      }
+    });
+    return;
+  }
+}
+
+function isValidDate(date)
+{
+  var matches = /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/.exec(date);
+  if (matches === null) return false;
+  var d = parseInt(matches[3]);
+  var m = parseInt(matches[2]) - 1;
+  var y = parseInt(matches[1]);
+  console.log('=>' + d + m + y);
+  var composedDate = new Date(Date.UTC(y, m, d));
+  if( composedDate.getDate() === d && composedDate.getMonth() === m && composedDate.getFullYear() === y ) {
+    return composedDate;
+  } else {
+    return false;
+  }
+}
+
+function dumpFirstIndex( exportDate, indexNames, appendOutput ) {
+  if(indexNames.length===0) {
+    log('log', 'Done exporting indexes with success');
+    process.exit(0);
+  }
+
+  var index = indexNames[0];
+  log('log', 'Preparing dump from index: ' + index);
+  options['input-index'] = index;
+  options['searchBody'] = getQueryToFilterByDate(exportDate);
+
+  if(appendOutput) {
+    options.appendOutput = true;
+  }
+
+  var dumper = new Elasticdump(options.input, options.output, options)
+
+  dumper.on('log', function (message) { log('log', message) })
+  dumper.on('debug', function (message) { log('debug', message) })
+  dumper.on('error', function (error) { log('error', 'Error Emitted => ' + (error.message || JSON.stringify(error))) })
+
+  dumper.dump(
+    function (error) {
+      if (error) {
+        log('error', 'Failed to export data from indexes');
+        process.exit(1)
+      } else {
+        indexNames.shift();
+        dumpFirstIndex( exportDate, indexNames, true);
+      }
+    }
+  );
+}
+
+function getQueryToFilterByDate(date) {
+
+  var dd = date.getUTCDate();
+  var mm = date.getUTCMonth()+1;
+  var yyyy = date.getUTCFullYear();
+  if(dd<10) dd='0'+dd;
+  if(mm<10) mm='0'+mm;
+
+  var dateString = '' + dd + '/' + mm + '/' + yyyy;
+
+  var query =
+    {"query":
+      {"range":
+        {"@timestamp":
+          { "gte": dateString,
+            "lte": dateString,
+            "format": "dd/MM/yyyy",
+            "time_zone": "+00:00"}
+        }
+      }
+    }
+
+  return query;
 }

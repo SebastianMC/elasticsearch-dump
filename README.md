@@ -30,5 +30,21 @@ Please refer to the relevant confluence page for installation instructions
                     that the query is read from specified JSON file instead of
                     explicit parameter in command line
                     
+--exportFromDate
+                    Specify a date of a day in format YYYY-MM-DD (e.g. 2017-07-15)
+                    Based on the date the ElasticSearch indexes to export from will
+                    be determined automatically.
+                    This parameter requires the --input-index-pattern to be supplied.
+                    At the same time, the --input-index parameter is ignored
+                    
+                    The export will read from one or more indexes
+                    
+--input-index-pattern
+                    Only applicable together with --exportFromDate
+                    Specify a base name for the ElasticSearch index to scan
+                    The wildcard '*' will be appended automatically when querying ElasticSearch
+                    
+--appendOutput
+                    For file output, if the parameter is =true, the logs will be appended to the output file
 ```
 

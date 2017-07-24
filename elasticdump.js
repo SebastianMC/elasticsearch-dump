@@ -111,6 +111,27 @@ elasticdump.prototype.validateOptions = function () {
   return validationErrors
 }
 
+elasticdump.prototype.queryIndexForDate = function (indexPrefix, date, callback) {
+  var self = this
+
+  self.input.getIndexForDate( indexPrefix, date, function(err,data) {
+    var indexes;
+    if (err) { self.emit('error', err) }
+    if (!err ) {
+      if(Array.isArray(data) && data[0] && data[0].indices) {
+        // NOTE: when querying ElasticSearch succeeded and no data for specified date was found, we land here
+        //       with an 'indices' object having no properties
+        indexes = data[0].indices;
+      } else {
+        self.emit('error', {errors: ['ElasticSearch failed to return indexes - wasn\'t the ElasticSearch instance upgraded recently?']})
+        err = new Error('There was an error querying the list of indexes');
+      }
+    }
+    if(typeof callback === 'function') callback(err, indexes)
+  })
+
+}
+
 elasticdump.prototype.dump = function (callback, continuing, limit, offset, totalWrites) {
   var self = this
 
