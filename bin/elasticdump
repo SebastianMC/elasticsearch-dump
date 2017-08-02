@@ -150,7 +150,9 @@ if (argv.help === true) {
           }
 
           // knowing the indexes, the export could start
-          dumpFirstIndex( exportDate, indexNames, false );
+          var queryFromCmdLine = options['searchBody'];
+          var filterQuery = combineQueries(exportDate, queryFromCmdLine);
+          dumpFirstIndex( filterQuery, indexNames, false );
         }
       }
     });
@@ -173,7 +175,7 @@ function isValidDate(date)
   var d = parseInt(matches[3]);
   var m = parseInt(matches[2]) - 1;
   var y = parseInt(matches[1]);
-  console.log('=>' + d + m + y);
+
   var composedDate = new Date(Date.UTC(y, m, d));
   if( composedDate.getDate() === d && composedDate.getMonth() === m && composedDate.getFullYear() === y ) {
     return composedDate;
@@ -182,7 +184,7 @@ function isValidDate(date)
   }
 }
 
-function dumpFirstIndex( exportDate, indexNames, appendOutput ) {
+function dumpFirstIndex( filterQuery, indexNames, appendOutput ) {
   if(indexNames.length===0) {
     log('log', 'Done exporting indexes with success');
     process.exit(0);
@@ -191,7 +193,7 @@ function dumpFirstIndex( exportDate, indexNames, appendOutput ) {
   var index = indexNames[0];
   log('log', 'Preparing dump from index: ' + index);
   options['input-index'] = index;
-  options['searchBody'] = getQueryToFilterByDate(exportDate);
+  options['searchBody'] = filterQuery;
 
   if(appendOutput) {
     options.appendOutput = true;
@@ -210,7 +212,7 @@ function dumpFirstIndex( exportDate, indexNames, appendOutput ) {
         process.exit(1)
       } else {
         indexNames.shift();
-        dumpFirstIndex( exportDate, indexNames, true);
+        dumpFirstIndex( filterQuery, indexNames, true);
       }
     }
   );
@@ -236,7 +238,41 @@ function getQueryToFilterByDate(date) {
             "time_zone": "+00:00"}
         }
       }
-    }
+    };
 
   return query;
+}
+
+function combineQueries(date, cmdLineQuery) {
+
+  var dateQuery = getQueryToFilterByDate(date);
+  var combinedQuery = dateQuery;
+
+  // check if query supplied in command line is present and represetns a 'bool' structure
+  if( cmdLineQuery ) {
+
+    //  e.g. { "query":{ "bool":{ "should":[ { "match_phrase":{ "message":"Action LoadPageById SUCCESS" } } ] } } };
+    if( cmdLineQuery['query'] && cmdLineQuery['query']['bool']) {
+      combinedQuery =
+      {"query": {
+        "constant_score": {
+          "filter": {
+            "bool": {
+              "must": [
+                dateQuery['query'],
+                cmdLineQuery['query']
+              ]
+            }
+          }
+        }
+      }};
+      log('log', 'The search query supplied via commandline was merged with date filtering query. If your query included date restriction, this could lead to unexpected results');
+    } else {
+      // Not able to merge date query with the query supplied via command line
+      log('log', 'The search query supplied via commandline was ignored and overriden by date fitering. Merging of the type of supplied query format is not supported.')
+    }
+  }
+
+  //console.log( JSON.stringify(combinedQuery,null,2));
+  return combinedQuery;
 }

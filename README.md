@@ -39,6 +39,11 @@ Please refer to the relevant confluence page for installation instructions
                     
                     The export will read from one or more indexes
                     
+                    WARNING! this parameter used together with --searchBody or --searchBodyFile will
+                    attempt to merge the search queries, the one from commandline with the one for date filtering.
+                    If the query from commandline is in format different than { "query":{ "bool": ...
+                    it will be ignored and overwritten by the date filtering.
+                    
 --input-index-pattern
                     Only applicable together with --exportFromDate
                     Specify a base name for the ElasticSearch index to scan
